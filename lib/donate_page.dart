@@ -1,10 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';  // Import the http_parser for MediaType
+import 'package:geolocator/geolocator.dart';  // Import geolocator for location fetching
+import 'package:shared_preferences/shared_preferences.dart';
+import 'profile_page.dart';
 
 class DonatePage extends StatefulWidget {
   const DonatePage({super.key});
@@ -16,136 +17,111 @@ class DonatePage extends StatefulWidget {
 class _DonatePageState extends State<DonatePage> {
   final _foodNameController = TextEditingController();
   final _sharingSizeController = TextEditingController();
-  List<File> _images = []; // List to store multiple selected images
-  Set<String> _imagePaths = {}; // Set to track selected image paths
-  final int _maxImages = 5; // Limit for maximum number of images
+  String _currentLocation = ""; // Store the fetched location
 
-  // Method to pick multiple images from the gallery with validation
-  Future<void> _pickImagesFromGallery() async {
-    if (_images.length >= _maxImages) {
-      Fluttertoast.showToast(
-        msg: "You can only select up to $_maxImages images.",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.CENTER,
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-      );
-      return;
-    }
-
+  // Method to fetch the current location of the user
+  Future<void> _getCurrentLocation() async {
     try {
-      final pickedFiles = await ImagePicker().pickMultiImage(); // Pick multiple images
-      if (pickedFiles == null || pickedFiles.isEmpty) return;
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        Fluttertoast.showToast(
+          msg: "Location services are disabled. Please enable them.",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.CENTER,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
 
-      setState(() {
-        for (var pickedFile in pickedFiles) {
-          if (_imagePaths.contains(pickedFile.path)) {
-            // Skip images that are already selected
-            Fluttertoast.showToast(
-              msg: "Image already selected: ${pickedFile.path}",
-              toastLength: Toast.LENGTH_SHORT,
-              gravity: ToastGravity.CENTER,
-              backgroundColor: Colors.orange,
-              textColor: Colors.white,
-            );
-            continue;
-          }
-          if (_images.length < _maxImages) {
-            _images.add(File(pickedFile.path));
-            _imagePaths.add(pickedFile.path);
-          }
-        }
-      });
-    } catch (e) {
-      print('Error picking images: $e');
-    }
-  }
+        return;
+      }
 
-  // Method to capture an image from the camera with validation
-  Future<void> _captureImageFromCamera() async {
-    if (_images.length >= _maxImages) {
-      Fluttertoast.showToast(
-        msg: "You can only select up to $_maxImages images.",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.CENTER,
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-      );
-      return;
-    }
-
-    try {
-      final pickedFile = await ImagePicker().pickImage(source: ImageSource.camera); // Capture image from camera
-      if (pickedFile == null) return;
-
-      setState(() {
-        if (_imagePaths.contains(pickedFile.path)) {
+      // Check location permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
           Fluttertoast.showToast(
-            msg: "Image already selected: ${pickedFile.path}",
+            msg: "Location permission denied. Please allow it.",
             toastLength: Toast.LENGTH_SHORT,
             gravity: ToastGravity.CENTER,
-            backgroundColor: Colors.orange,
+            backgroundColor: Colors.red,
             textColor: Colors.white,
           );
           return;
         }
-        _images.add(File(pickedFile.path));
-        _imagePaths.add(pickedFile.path);
+      }
+
+      // Get the current position
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+
+      // Update the location state
+      setState(() {
+        _currentLocation = "Lat: ${position.latitude}, Lon: ${position.longitude}";
+        Fluttertoast.showToast(msg: _currentLocation);
       });
     } catch (e) {
-      print('Error capturing image: $e');
+      print('Error fetching location: $e');
+      Fluttertoast.showToast(
+        msg: "Error fetching location: $e",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
     }
   }
 
-  // Method to remove a specific image
-  void _removeImage(int index) {
-    setState(() {
-      _imagePaths.remove(_images[index].path);
-      _images.removeAt(index);
-    });
-  }
-
-  // Method to clear all images
-  void _clearAllImages() {
-    setState(() {
-      _images.clear();
-      _imagePaths.clear();
-    });
-  }
-
-  // Method to submit the form and send POST request with images
+  // Method to submit the form and send the POST request with JSON
   Future<void> _submitForm() async {
+    // Fetch the location when the user clicks on submit
+    await _getCurrentLocation();
+
     if (_foodNameController.text.isNotEmpty &&
         _sharingSizeController.text.isNotEmpty &&
-        _images.isNotEmpty) {
-      // Prepare multipart request
-      var uri = Uri.parse('https://your-backend-url.com/donate'); // Replace with your API endpoint
+        _currentLocation.isNotEmpty) {
 
-      var request = http.MultipartRequest('POST', uri);
+      // Get the access_token from shared preferences
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? accessToken = prefs.getString('access_token');  // Replace 'access_token' with your actual key
 
-      // Add text fields to the request
-      request.fields['food_name'] = _foodNameController.text;
-      request.fields['sharing_size'] = _sharingSizeController.text;
-
-      // Add images to the request
-      for (var image in _images) {
-        var imageBytes = await image.readAsBytes();
-        var multipartFile = http.MultipartFile.fromBytes(
-          'images[]',  // The name of the field for images on your server
-          imageBytes,
-          filename: image.path.split('/').last, // The file name
-          contentType: MediaType('image', 'jpeg'), // Use http_parser's MediaType
+      if (accessToken == null || accessToken.isEmpty) {
+        Fluttertoast.showToast(
+          msg: "Access token is missing. Please log in again.",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.CENTER,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
         );
-        request.files.add(multipartFile);
+        return;
       }
 
+      // Prepare the data as a Map (for JSON body)
+      Map<String, String> donationData = {
+        'foodName': _foodNameController.text.toString(),
+        'servingSize': _sharingSizeController.text.toString(),
+        'location': _currentLocation.toString(), // Add the location to the request
+      };
+
+      // Convert the Map to JSON
+      String jsonBody = json.encode(donationData);
+
+      // Prepare the POST request
+      var uri = Uri.parse('https://82a3-103-104-226-58.ngrok-free.app/api/userDonationData'); // Replace with your API endpoint
       try {
-        // Send the request and wait for the response
-        var response = await request.send();
-        print('Response: ${response}');
+        // Send the request as a JSON body
+        var response = await http.post(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $accessToken', // Add token in Authorization header
+            'Content-Type': 'application/json', // Set content type as JSON
+          },
+          body: jsonBody,
+        );
 
         // Check if the response is successful
-        if (response.statusCode == 200) {
+        if (response.statusCode == 201) {
           Fluttertoast.showToast(
             msg: "Donation Submitted Successfully!",
             toastLength: Toast.LENGTH_SHORT,
@@ -156,7 +132,11 @@ class _DonatePageState extends State<DonatePage> {
           );
           _foodNameController.clear();
           _sharingSizeController.clear();
-          _clearAllImages();
+          // Navigate to ProfilePage after successful donation
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => ProfilePage()),  // Navigate to ProfilePage
+          );
         } else {
           Fluttertoast.showToast(
             msg: "Failed to submit donation. Please try again.",
@@ -180,7 +160,7 @@ class _DonatePageState extends State<DonatePage> {
       }
     } else {
       Fluttertoast.showToast(
-        msg: "Please fill in all fields and add images.",
+        msg: "Please fill in all fields and allow location access.",
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.CENTER,
         backgroundColor: Colors.red,
@@ -189,6 +169,7 @@ class _DonatePageState extends State<DonatePage> {
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -224,66 +205,12 @@ class _DonatePageState extends State<DonatePage> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Image Picker Button for picking multiple images from gallery
-              ElevatedButton(
-                onPressed: _pickImagesFromGallery,
-                child: const Text('Pick Images from Gallery'),
-              ),
-              const SizedBox(height: 10),
-              // Camera Button for capturing an image
-              ElevatedButton(
-                onPressed: _captureImageFromCamera,
-                child: const Text('Capture Image from Camera'),
-              ),
-              const SizedBox(height: 20),
-              // Clear All Images Button
-              _images.isNotEmpty
-                  ? ElevatedButton(
-                onPressed: _clearAllImages,
-                child: const Text('Clear All Images'),
-              )
-                  : const SizedBox(),
-              const SizedBox(height: 20),
-              // Display selected images with individual delete buttons
-              _images.isNotEmpty
-                  ? GridView.builder(
-                shrinkWrap: true,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3, // Display images in a 3-column grid
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
+              // Display current location (if fetched)
+              if (_currentLocation.isNotEmpty)
+                Text(
+                  'Current Location: $_currentLocation',
+                  style: TextStyle(fontSize: 16, color: Colors.black),
                 ),
-                itemCount: _images.length,
-                itemBuilder: (context, index) {
-                  return Stack(
-                    children: [
-                      Image.file(
-                        _images[index],
-                        width: 100,
-                        height: 100,
-                        fit: BoxFit.cover,
-                      ),
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: GestureDetector(
-                          onTap: () => _removeImage(index),
-                          child: const CircleAvatar(
-                            backgroundColor: Colors.red,
-                            radius: 12,
-                            child: Icon(
-                              Icons.close,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              )
-                  : const Text('No images selected'),
               const SizedBox(height: 20),
               // Submit Button
               ElevatedButton(

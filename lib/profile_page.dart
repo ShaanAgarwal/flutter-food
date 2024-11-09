@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 import 'main.dart';
-import 'donate_page.dart'; // Import DonatePage
+import 'donate_page.dart';
+import 'tracking.dart';
+import 'recipe_generation_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -40,7 +42,6 @@ class _ProfilePageState extends State<ProfilePage> {
     'https://picsum.photos/400/400?random=5',
   ];
 
-  // Track the index of the active story (clicked story)
   int? _activeStoryIndex;
 
   @override
@@ -340,12 +341,33 @@ class _ProfilePageState extends State<ProfilePage> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.receipt),
+              title: const Text('Generate Recipe'),
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RecipeGenerationPage()),
+                );
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.local_hospital),
               title: const Text('Donate Food'),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const DonatePage()),
+                );
+              },
+            ),
+            // New "Tracking" button in the drawer
+            ListTile(
+              leading: const Icon(Icons.track_changes),
+              title: const Text('Tracking'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const TrackingPage()), // Navigate to the Tracking page
                 );
               },
             ),

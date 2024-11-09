@@ -175,7 +175,7 @@ class LoginPage extends StatelessWidget {
                     // Navigate to SignUpPage (if available)
                     // Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUpPage()));
                   },
-                  child: Text(
+                  child: const Text(
                     'Don\'t have an account? Sign Up',
                     style: TextStyle(
                       fontSize: 16,
