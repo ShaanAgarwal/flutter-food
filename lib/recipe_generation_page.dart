@@ -31,7 +31,7 @@ class _RecipeGenerationPageState extends State<RecipeGenerationPage> {
     }
 
     // API URL
-    const apiUrl = 'https://64ee-103-104-226-58.ngrok-free.app/recipe/send-recipes';
+    const apiUrl = 'https://64ee-103-104-226-58.ngrok-free.app/recipe/send-recipes/';
 
     try {
       final response = await http.post(
@@ -49,7 +49,7 @@ class _RecipeGenerationPageState extends State<RecipeGenerationPage> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final List<dynamic> receivedData = data['data']['received_data']['recipes'];
+        final List<dynamic> receivedData = data['data']['received_data']['recipes']['recipes'];
 
         setState(() {
           _recipes = List<Map<String, dynamic>>.from(receivedData);
@@ -61,6 +61,7 @@ class _RecipeGenerationPageState extends State<RecipeGenerationPage> {
       print('Error fetching recipes: $e');
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
