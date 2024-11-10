@@ -8,7 +8,7 @@ class SignUpPage extends StatelessWidget {
   const SignUpPage({super.key});
 
   Future<void> _signUp(String username, String email, String password, BuildContext context) async {
-    const String apiUrl = "https://82a3-103-104-226-58.ngrok-free.app/api/register";
+    const String apiUrl = "https://3432-103-104-226-58.ngrok-free.app/api/register";
 
     try {
       final response = await http.post(

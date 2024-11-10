@@ -174,7 +174,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   child: ElevatedButton(
                     onPressed: () {
                       // Navigate to SignUpPage
-                      Navigator.push(
+                      Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(builder: (context) => const SignUpPage()),
                       );

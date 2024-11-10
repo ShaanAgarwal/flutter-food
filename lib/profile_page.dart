@@ -71,7 +71,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _isLoading = true; // Set loading state to true
     });
 
-    const String apiUrl = 'https://82a3-103-104-226-58.ngrok-free.app/api/getitems'; // Replace with your API URL
+    const String apiUrl = 'https://3432-103-104-226-58.ngrok-free.app/api/getitems'; // Replace with your API URL
 
     try {
       final response = await http.get(
@@ -255,7 +255,7 @@ class _ProfilePageState extends State<ProfilePage> {
       'access_token': _accessToken
     };
 
-    const String apiUrl = 'https://82a3-103-104-226-58.ngrok-free.app/api/additem';
+    const String apiUrl = 'https://3432-103-104-226-58.ngrok-free.app/api/additem';
 
     try {
       final response = await http.post(
